@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบยืม–คืนหนังสือห้องสมุดโรงเรียน</title>
+<style>
+:root{--blue:#2357a6;--light:#f3f6fb;--ink:#203047;--green:#18794e;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--light);font-family:Tahoma,"Noto Sans Thai",sans-serif;color:var(--ink)}
+header{background:linear-gradient(120deg,#17458b,#3978c9);color:white;padding:25px 18px}
+header h1{margin:0 0 8px;font-size:clamp(22px,4vw,32px)}header p{margin:0;opacity:.92}
+main{max-width:1100px;margin:22px auto;padding:0 14px 36px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.stat,.panel{background:white;border-radius:14px;padding:17px;box-shadow:0 3px 14px #1a355410}
+.stat span{display:block;color:#62718a;font-size:14px}.stat strong{display:block;font-size:28px;margin-top:7px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+button{border:0;border-radius:9px;padding:10px 14px;cursor:pointer;font:inherit;font-weight:600}
+.tab{background:#e2eaf7;color:#244b82}.tab.active{background:var(--blue);color:white}
+.panel{margin-bottom:16px}.panel h2{margin:0 0 14px;font-size:20px}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+label{display:block;font-size:14px;margin-bottom:5px;color:#53647c}
+input,select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;background:white}
+.primary{background:var(--blue);color:white}.secondary{background:#e7edf6;color:#29476e}.danger{background:#fde8e7;color:var(--red)}.success{background:#dff5e9;color:var(--green)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.hidden{display:none!important}.message{padding:10px 12px;border-radius:8px;margin:0 0 12px;background:#e7f4ff}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #e6ebf2;font-size:14px}th{background:#f6f8fc;color:#52627a}
+.badge{display:inline-block;border-radius:20px;padding:4px 8px;font-size:12px;background:#e5edf9}.badge.ok{background:#dff5e9;color:#176442}.badge.late{background:#fde8e7;color:#a3211a}
+.small{font-size:13px;color:#65748a}.empty{padding:18px;text-align:center;color:#738198}
+footer{text-align:center;color:#7b8798;font-size:12px;padding:15px}
+</style>
+</head>
+<body>
+<header><h1>📚 ระบบยืม–คืนหนังสือห้องสมุด</h1><p>ระบบจัดการหนังสือ นักเรียน และรายการยืม–คืน สำหรับห้องสมุดโรงเรียน</p></header>
+<main>
+<section class="stats">
+<div class="stat"><span>หนังสือทั้งหมด (เล่ม)</span><strong id="totalBooks">0</strong></div>
+<div class="stat"><span>พร้อมให้ยืม (เล่ม)</span><strong id="availableBooks">0</strong></div>
+<div class="stat"><span>กำลังถูกยืม (รายการ)</span><strong id="borrowedCount">0</strong></div>
+<div class="stat"><span>เกินกำหนดคืน (รายการ)</span><strong id="lateCount">0</strong></div>
+</section>
+<div class="tabs">
+<button class="tab active" data-tab="borrow">ยืมหนังสือ</button><button class="tab" data-tab="return">คืนหนังสือ</button><button class="tab" data-tab="books">จัดการหนังสือ</button><button class="tab" data-tab="students">ข้อมูลนักเรียน</button><button class="tab" data-tab="history">ประวัติยืม–คืน</button>
+</div>
+<div id="notice" class="message hidden" role="status"></div>
+
+<section id="borrow" class="panel">
+<h2>📝 บันทึกการยืมหนังสือ</h2>
+<form id="borrowForm">
+<div class="formgrid">
+<div><label for="borrowStudentName">ชื่อนักเรียน</label><input id="borrowStudentName" required placeholder="พิมพ์ชื่อ–นามสกุลนักเรียน"></div>
+<div><label for="borrowStudentId">รหัสนักเรียน (ถ้ามี)</label><input id="borrowStudentId" placeholder="เช่น 12345"></div>
+<div><label for="borrowBookTitle">ชื่อหนังสือที่ต้องการยืม</label><input id="borrowBookTitle" required placeholder="พิมพ์ชื่อหนังสือ"></div>
+<div><label for="borrowBookId">รหัสหนังสือ (ถ้ามี)</label><input id="borrowBookId" placeholder="เช่น B001"></div>
+<div><label for="borrowDate">วันที่ยืม</label><input id="borrowDate" type="date" required></div>
+<div><label for="dueDate">กำหนดคืน</label><input id="dueDate" type="date" required></div>
+</div>
+<div class="actions"><button class="primary" type="submit">บันทึกการยืม</button></div>
+</form>
+<p class="small">หมายเหตุ: ตัวอย่างนี้กำหนดให้ยืมหนังสือได้ครั้งละ 1 เล่มต่อรายการ</p>
+</section>
+
+<section id="return" class="panel hidden">
+<h2>↩️ คืนหนังสือ</h2>
+<div class="formgrid"><div><label for="returnSearch">ค้นหาชื่อนักเรียนหรือชื่อหนังสือ</label><input id="returnSearch" placeholder="พิมพ์คำค้นหา..."></div></div>
+<div id="returnTable" class="tablewrap"></div>
+</section>
+
+<section id="books" class="panel hidden">
+<h2>📖 จัดการข้อมูลหนังสือ</h2>
+<form id="bookForm">
+<div class="formgrid">
+<div><label for="bookId">รหัสหนังสือ</label><input id="bookId" required placeholder="เช่น B004"></div>
+<div><label for="bookTitle">ชื่อหนังสือ</label><input id="bookTitle" required placeholder="ชื่อหนังสือ"></div>
+<div><label for="bookAuthor">ผู้แต่ง</label><input id="bookAuthor" placeholder="ชื่อผู้แต่ง"></div>
+<div><label for="bookCategory">หมวดหมู่</label><input id="bookCategory" placeholder="เช่น วรรณกรรม"></div>
+</div><div class="actions"><button class="primary" type="submit">เพิ่มหนังสือ</button></div>
+</form>
+<div id="booksTable" class="tablewrap"></div>
+</section>
+
+<section id="students" class="panel hidden">
+<h2>👩‍🎓 จัดการข้อมูลนักเรียน</h2>
+<form id="studentForm">
+<div class="formgrid">
+<div><label for="studentId">รหัสนักเรียน</label><input id="studentId" required placeholder="เช่น S004"></div>
+<div><label for="studentName">ชื่อ–นามสกุล</label><input id="studentName" required placeholder="ชื่อและนามสกุล"></div>
+<div><label for="studentClass">ชั้นเรียน</label><input id="studentClass" placeholder="เช่น ม.2/1"></div>
+</div><div class="actions"><button class="primary" type="submit">เพิ่มนักเรียน</button></div>
+</form>
+<div id="studentsTable" class="tablewrap"></div>
+</section>
+
+<section id="history" class="panel hidden">
+<h2>📋 ประวัติการยืม–คืน</h2>
+<div class="formgrid"><div><label for="historySearch">ค้นหารายการ</label><input id="historySearch" placeholder="รหัส/ชื่อนักเรียน หรือชื่อหนังสือ"></div></div>
+<div id="historyTable" class="tablewrap"></div>
+<div class="actions"><button class="secondary" id="exportCsv" type="button">ส่งออกประวัติเป็น CSV</button><button class="danger" id="resetDemo" type="button">ล้างข้อมูลทั้งหมด</button></div>
+</section>
+<footer>ข้อมูลในหน้านี้จัดเก็บในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น ไม่ใช่ฐานข้อมูลออนไลน์</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toLocaleDateString('en-CA');
+const addDays=(d,n)=>{let x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return x.toLocaleDateString('en-CA')};
+const initial={
+books:[{id:'B001',title:'นิทานอีสป',author:'อีสป',category:'นิทาน'},{id:'B002',title:'วิทยาศาสตร์รอบตัว',author:'ฝ่ายวิชาการ',category:'วิทยาศาสตร์'},{id:'B003',title:'ภาษาไทยน่ารู้',author:'ฝ่ายภาษาไทย',category:'ภาษาไทย'}],
+students:[{id:'S001',name:'เด็กหญิงตัวอย่าง ใจดี',class:'ป.6/1'},{id:'S002',name:'เด็กชายตัวอย่าง ขยันเรียน',class:'ม.1/1'}],loans:[]};
+let db;try{db=JSON.parse(localStorage.getItem('librarySystemV1'))||initial}catch(e){db=initial}
+function save(){localStorage.setItem('librarySystemV1',JSON.stringify(db));render()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function msg(s){$('notice').textContent=s;$('notice').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})}
+function activeLoans(){return db.loans.filter(x=>!x.returnDate)}
+function isOut(id){return activeLoans().some(x=>x.bookId===id)}
+function status(x){if(x.returnDate)return '<span class="badge ok">คืนแล้ว</span>';if(x.dueDate<today())return '<span class="badge late">เกินกำหนด</span>';return '<span class="badge">กำลังยืม</span>'}
+function table(headers,rows){return rows.length?`<table><thead><tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`:'<div class="empty">ยังไม่มีข้อมูล</div>'}
+function render(){
+$('totalBooks').textContent=db.books.length;$('availableBooks').textContent=db.books.filter(b=>!isOut(b.id)).length;
+$('borrowedCount').textContent=activeLoans().length;$('lateCount').textContent=activeLoans().filter(x=>x.dueDate<today()).length;
+$('booksTable').innerHTML=table(['รหัส','ชื่อหนังสือ','ผู้แต่ง','หมวดหมู่','สถานะ','จัดการ'],db.books.map(b=>`<tr><td>${esc(b.id)}</td><td>${esc(b.title)}</td><td>${esc(b.author||'-')}</td><td>${esc(b.category||'-')}</td><td>${isOut(b.id)?'<span class="badge late">ถูกยืม</span>':'<span class="badge ok">พร้อมยืม</span>'}</td><td><button class="danger" onclick="deleteBook('${esc(b.id)}')">ลบ</button></td></tr>`));
+$('studentsTable').innerHTML=table(['รหัสนักเรียน','ชื่อ–นามสกุล','ชั้นเรียน','จัดการ'],db.students.map(s=>`<tr><td>${esc(s.id)}</td><td>${esc(s.name)}</td><td>${esc(s.class||'-')}</td><td><button class="danger" onclick="deleteStudent('${esc(s.id)}')">ลบ</button></td></tr>`));
+const q=$('returnSearch').value.toLowerCase();
+$('returnTable').innerHTML=table(['รหัสรายการ','นักเรียน','หนังสือ','วันที่ยืม','กำหนดคืน','สถานะ','ดำเนินการ'],activeLoans().filter(x=>(x.studentName+' '+x.bookTitle+' '+x.studentId).toLowerCase().includes(q)).map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.studentName)}<br><span class="small">${esc(x.studentId)}</span></td><td>${esc(x.bookTitle)}</td><td>${esc(x.borrowDate)}</td><td>${esc(x.dueDate)}</td><td>${status(x)}</td><td><button class="success" onclick="returnBook('${esc(x.id)}')">รับคืน</button></td></tr>`));
+const hq=$('historySearch').value.toLowerCase();
+$('historyTable').innerHTML=table(['รหัสรายการ','รหัสนักเรียน','ชื่อนักเรียน','รหัสหนังสือ','ชื่อหนังสือ','วันที่ยืม','กำหนดคืน','วันที่คืน','สถานะ'],[...db.loans].reverse().filter(x=>(Object.values(x).join(' ')).toLowerCase().includes(hq)).map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.studentId)}</td><td>${esc(x.studentName)}</td><td>${esc(x.bookId)}</td><td>${esc(x.bookTitle)}</td><td>${esc(x.borrowDate)}</td><td>${esc(x.dueDate)}</td><td>${esc(x.returnDate||'-')}</td><td>${status(x)}</td></tr>`));
+}
+$('borrowDate').value=today();$('dueDate').value=addDays(today(),7);
+$('borrowForm').addEventListener('submit',e=>{e.preventDefault();let studentName=$('borrowStudentName').value.trim(), studentId=$('borrowStudentId').value.trim()||'ไม่ระบุ', bookTitle=$('borrowBookTitle').value.trim(), bookId=$('borrowBookId').value.trim()||'ไม่ระบุ';if(!studentName||!bookTitle)return msg('กรุณากรอกชื่อนักเรียนและชื่อหนังสือ');if($('dueDate').value<$('borrowDate').value)return msg('กำหนดคืนต้องไม่ก่อนวันที่ยืม');db.loans.push({id:'L'+Date.now().toString().slice(-8),studentId,studentName,bookId,bookTitle,borrowDate:$('borrowDate').value,dueDate:$('dueDate').value,returnDate:''});save();e.target.reset();$('borrowDate').value=today();$('dueDate').value=addDays(today(),7);msg('บันทึกการยืมหนังสือเรียบร้อยแล้ว');});
+$('bookForm').addEventListener('submit',e=>{e.preventDefault();let id=$('bookId').value.trim();if(db.books.some(b=>b.id===id))return msg('รหัสหนังสือนี้มีอยู่แล้ว');db.books.push({id,title:$('bookTitle').value.trim(),author:$('bookAuthor').value.trim(),category:$('bookCategory').value.trim()});save();e.target.reset();msg('เพิ่มหนังสือเรียบร้อยแล้ว');});
+$('studentForm').addEventListener('submit',e=>{e.preventDefault();let id=$('studentId').value.trim();if(db.students.some(s=>s.id===id))return msg('รหัสนักเรียนนี้มีอยู่แล้ว');db.students.push({id,name:$('studentName').value.trim(),class:$('studentClass').value.trim()});save();e.target.reset();msg('เพิ่มข้อมูลนักเรียนเรียบร้อยแล้ว');});
+window.returnBook=id=>{let x=db.loans.find(l=>l.id===id);if(x&&!x.returnDate){x.returnDate=today();save();msg('บันทึกการคืนหนังสือเรียบร้อยแล้ว')}};
+window.deleteBook=id=>{if(isOut(id))return msg('ลบไม่ได้ เพราะหนังสือกำลังถูกยืม');if(confirm('ต้องการลบหนังสือเล่มนี้หรือไม่?')){db.books=db.books.filter(x=>x.id!==id);save()}};
+window.deleteStudent=id=>{if(activeLoans().some(x=>x.studentId===id))return msg('ลบไม่ได้ เพราะนักเรียนยังมีหนังสือค้างคืน');if(confirm('ต้องการลบข้อมูลนักเรียนนี้หรือไม่?')){db.students=db.students.filter(x=>x.id!==id);save()}};
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('main>section.panel').forEach(x=>x.classList.add('hidden'));$(b.dataset.tab).classList.remove('hidden');$('notice').classList.add('hidden');render()}));
+$('returnSearch').addEventListener('input',render);$('historySearch').addEventListener('input',render);
+$('exportCsv').addEventListener('click',()=>{const fields=['id','studentId','studentName','bookId','bookTitle','borrowDate','dueDate','returnDate'];const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const csv='\ufeff'+[fields.join(','),...db.loans.map(x=>fields.map(f=>quote(x[f])).join(','))].join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='library-borrow-return.csv';a.click();URL.revokeObjectURL(a.href)});
+$('resetDemo').addEventListener('click',()=>{if(confirm('ล้างข้อมูลหนังสือ นักเรียน และประวัติทั้งหมดหรือไม่? ไม่สามารถย้อนกลับได้')){db={books:[],students:[],loans:[]};save();msg('ล้างข้อมูลแล้ว')}});
+render();
+</script>
+</body></html>
